@@ -8,7 +8,7 @@ public class StartScreen extends JPanel {
     public StartScreen(ActionListener onPlay,
                        ActionListener onSettings,
                        ActionListener onCredits) {
-        setPreferredSize(new Dimension(960, 540));
+        setPreferredSize(new Dimension(1920, 1080));
         setLayout(new GridBagLayout());   // lets us center the button row
         setOpaque(true);
 
