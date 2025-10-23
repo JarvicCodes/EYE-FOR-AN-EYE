@@ -1,5 +1,7 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 
 public class Main {
     public static void main(String[] args) {
@@ -15,14 +17,14 @@ public class Main {
 
             // --- Create screens ---
             StartScreen start = new StartScreen(
-                e -> cards.show(container, "game"),
-                e -> cards.show(container, "settings"),
-                e -> cards.show(container, "credits")
+                new ActionListener() { public void actionPerformed(ActionEvent e) { cards.show(container, "game"); } },
+                new ActionListener() { public void actionPerformed(ActionEvent e) { cards.show(container, "settings"); } },
+                new ActionListener() { public void actionPerformed(ActionEvent e) { cards.show(container, "credits"); } }
             );
 
             GameClass game = new GameClass();
-            Settings settings = new Settings(e -> cards.show(container, "start"));
-            Credits credits = new Credits(e -> cards.show(container, "start"));
+            Settings settings = new Settings(new ActionListener() { public void actionPerformed(ActionEvent e) { cards.show(container, "start"); } });
+            Credits credits = new Credits(new ActionListener() { public void actionPerformed(ActionEvent e) { cards.show(container, "start"); } });
 
             // --- Add them to the card container ---
             container.add(start, "start");

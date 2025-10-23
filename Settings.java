@@ -22,7 +22,7 @@ public class Settings extends JPanel {
         ));
 
         // --- Center text ---
-        JLabel label = new JLabel("Insert trollface",
+        JLabel label = new JLabel("<html>Roll Until 21 to reach the endgame. <br/>Then try to keep your score as close to 21 to win.</html>",
                 SwingConstants.CENTER);
         label.setFont(new Font(Font.SERIF, Font.BOLD, 24));
         label.setForeground(neon);
