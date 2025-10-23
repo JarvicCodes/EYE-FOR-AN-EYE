@@ -6,7 +6,7 @@ public class Main {
         SwingUtilities.invokeLater(() -> {
             JFrame f = new JFrame("House Always Wins");
             f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            f.setSize(960, 540);
+            f.setSize(1920, 1080);
             f.setLocationRelativeTo(null);
 
             // Create a CardLayout and main panel

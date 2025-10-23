@@ -1,116 +1,182 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.InputStream;
+import javax.imageio.ImageIO;
 
-/** A self-painted title screen with Play / Settings / Credits buttons. */
 public class StartScreen extends JPanel {
 
-    public StartScreen(ActionListener onPlay,
-                       ActionListener onSettings,
-                       ActionListener onCredits) {
-        setPreferredSize(new Dimension(1920, 1080));
-        setLayout(new GridBagLayout());   // lets us center the button row
+    // ---- filenames (JPG or PNG both fine) ----
+    // change names here if yours differ
+    private static final String BG_NAME       = "titlescreennodice.png";
+    private static final String PLAY_NAME     = "dice_play.png";   // play die (transparent)
+    private static final String SETTINGS_NAME = "dice_settings.png";   // settings die (transparent)
+    private static final String CREDITS_NAME  = "dice_credits.png";   // credits die (transparent)
+
+    // ---- your slot fractions (x, y, w, h) in 0..1 ----
+    // these came from your message
+    private static final RectF SLOT_PLAY_F     = new RectF(0.18f, 0.74f, 0.13f, 0.18f);
+    private static final RectF SLOT_SETTINGS_F = new RectF(0.44f, 0.74f, 0.13f, 0.18f);
+    private static final RectF SLOT_CREDITS_F  = new RectF(0.68f, 0.74f, 0.13f, 0.18f);
+
+    // padding inside each slot (pixels, after converting from fractions)
+    private static final int SLOT_PAD = 8;
+
+    // turn on briefly to see outlines while tuning
+    private static final boolean DEBUG_SLOTS = false;
+
+    private BufferedImage bg, playDie, settingsDie, creditsDie;
+
+    // invisible buttons that sit on top of the dice
+    private final JButton playBtn     = new JButton();
+    private final JButton settingsBtn = new JButton();
+    private final JButton creditsBtn  = new JButton();
+
+    public StartScreen(ActionListener onPlay, ActionListener onSettings, ActionListener onCredits) {
+        setLayout(null);
         setOpaque(true);
 
-        // --- Buttons row -----------------------------------------------------
-        JButton play     = makeBtn("Play", onPlay);
-        JButton settings = makeBtn("Settings", onSettings);
-        JButton credits  = makeBtn("Credits", onCredits);
+        // load images (classpath first, then file fallback)
+        bg          = loadImage(BG_NAME);
+        playDie     = loadImage(PLAY_NAME);
+        settingsDie = loadImage(SETTINGS_NAME);
+        creditsDie  = loadImage(CREDITS_NAME);
 
-        JPanel row = new JPanel(new GridLayout(1, 3, 20, 0));
-        row.setOpaque(false);
-        row.add(play);
-        row.add(settings);
-        row.add(credits);
+        // make buttons invisible but clickable
+        makeInvisible(playBtn);
+        makeInvisible(settingsBtn);
+        makeInvisible(creditsBtn);
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0; gbc.gridy = 0;
-        gbc.weightx = 1; gbc.weighty = 1;
-        gbc.anchor = GridBagConstraints.SOUTH;
-        gbc.insets = new Insets(0, 0, 40, 0);
-        add(row, gbc);
+        // wire actions
+        if (onPlay     != null) playBtn.addActionListener(onPlay);
+        if (onSettings != null) settingsBtn.addActionListener(onSettings);
+        if (onCredits  != null) creditsBtn.addActionListener(onCredits);
 
-        // --- Key shortcuts: Enter=Play, S=Settings, C=Credits, Esc=Exit ------
-        getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("ENTER"), "play");
-        getActionMap().put("play", new AbstractAction() {
-            public void actionPerformed(java.awt.event.ActionEvent e) { play.doClick(); }
-        });
-        getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke('S'), "settings");
-        getActionMap().put("settings", new AbstractAction() {
-            public void actionPerformed(java.awt.event.ActionEvent e) { settings.doClick(); }
-        });
-        getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke('C'), "credits");
-        getActionMap().put("credits", new AbstractAction() {
-            public void actionPerformed(java.awt.event.ActionEvent e) { credits.doClick(); }
-        });
-        getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("ESCAPE"), "quit");
-        getActionMap().put("quit", new AbstractAction() {
-            public void actionPerformed(java.awt.event.ActionEvent e) { System.exit(0); }
+        // add to panel (add LAST = on TOP)
+        add(playBtn);
+        add(settingsBtn);
+        add(creditsBtn);
+
+        // ensure Z-order (0 is topmost in Swing)
+        setComponentZOrder(playBtn, 0);
+        setComponentZOrder(settingsBtn, 0);
+        setComponentZOrder(creditsBtn, 0);
+
+        // set initial bounds + keep in sync on resize
+        updateHotspots();
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override public void componentResized(java.awt.event.ComponentEvent e) {
+                updateHotspots();
+                revalidate();
+                repaint();
+            }
         });
     }
 
-    private JButton makeBtn(String text, ActionListener onClick) {
-        JButton b = new JButton(text);
+    private void updateHotspots() {
+        Rectangle p  = toPixels(SLOT_PLAY_F);
+        Rectangle s  = toPixels(SLOT_SETTINGS_F);
+        Rectangle c  = toPixels(SLOT_CREDITS_F);
+        playBtn.setBounds(p);
+        settingsBtn.setBounds(s);
+        creditsBtn.setBounds(c);
+    }
+
+    private void makeInvisible(AbstractButton b) {
+        b.setOpaque(false);
+        b.setContentAreaFilled(false);
+        b.setBorderPainted(false);
         b.setFocusPainted(false);
-        b.setFont(b.getFont().deriveFont(Font.BOLD, 18f));
-        b.addActionListener(onClick);
-        b.setOpaque(true);
-        b.setBackground(new Color(25, 25, 25));
-        b.setForeground(Color.WHITE);
-        b.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(160,130,255)),
-                BorderFactory.createEmptyBorder(10,18,10,18)
-        ));
-        return b;
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        if (DEBUG_SLOTS) {
+            // temporary visual aid while tuning positions
+            b.setContentAreaFilled(true);
+            b.setOpaque(true);
+            b.setBackground(new Color(0, 180, 255, 60));
+            b.setBorder(BorderFactory.createLineBorder(new Color(0, 80, 160, 160)));
+        }
     }
 
-    // Paint a gradient background and a neon-style title
+    // convert fractional rect to pixels for current panel size
+    private Rectangle toPixels(RectF rf) {
+        int pw = Math.max(1, getWidth());
+        int ph = Math.max(1, getHeight());
+        int x = Math.round(rf.x * pw);
+        int y = Math.round(rf.y * ph);
+        int w = Math.round(rf.w * pw);
+        int h = Math.round(rf.h * ph);
+        return new Rectangle(x, y, w, h);
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g.create();
-        int w = getWidth(), h = getHeight();
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-        // Background gradient
-        GradientPaint gp = new GradientPaint(0, 0, new Color(10,10,12),
-                                             0, h, new Color(15,5,25));
-        g2.setPaint(gp);
-        g2.fillRect(0, 0, w, h);
+        // draw background stretched to panel
+        if (bg != null) g2.drawImage(bg, 0, 0, getWidth(), getHeight(), null);
 
-        // Neon title "House Always Wins"
-        String line1 = "House";
-        String line2 = "Always Wins";
-        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
-                            RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        Font titleFont = new Font(Font.SERIF, Font.BOLD, Math.max(36, h/10));
-        g2.setFont(titleFont);
+        // draw dice centered within their slots (with padding)
+        drawCentered(g2, playDie,     shrink(toPixels(SLOT_PLAY_F),     SLOT_PAD));
+        drawCentered(g2, settingsDie, shrink(toPixels(SLOT_SETTINGS_F), SLOT_PAD));
+        drawCentered(g2, creditsDie,  shrink(toPixels(SLOT_CREDITS_F),  SLOT_PAD));
 
-        FontMetrics fm = g2.getFontMetrics();
-        int y1 = h/3;
-        int x1 = (w - fm.stringWidth(line1)) / 2;
-
-        // fake glow: draw several translucent passes
-        Color neon = new Color(185, 150, 255);
-        for (int r=8; r>=1; r--) {
-            g2.setColor(new Color(neon.getRed(), neon.getGreen(), neon.getBlue(), 15));
-            g2.drawString(line1, x1, y1);
+        if (DEBUG_SLOTS) {
+            g2.setStroke(new BasicStroke(2f));
+            g2.setColor(new Color(0, 255, 180, 140)); g2.draw(toPixels(SLOT_PLAY_F));
+            g2.setColor(new Color(255, 210, 0, 140)); g2.draw(toPixels(SLOT_SETTINGS_F));
+            g2.setColor(new Color(255, 80, 120, 140)); g2.draw(toPixels(SLOT_CREDITS_F));
         }
-        g2.setColor(neon);
-        g2.drawString(line1, x1, y1);
-
-        // second line a bit bigger
-        Font titleFont2 = titleFont.deriveFont(titleFont.getSize2D() * 1.2f);
-        g2.setFont(titleFont2);
-        fm = g2.getFontMetrics();
-        int y2 = y1 + fm.getAscent() + 20;
-        int x2 = (w - fm.stringWidth(line2)) / 2;
-        for (int r=8; r>=1; r--) {
-            g2.setColor(new Color(neon.getRed(), neon.getGreen(), neon.getBlue(), 15));
-            g2.drawString(line2, x2, y2);
-        }
-        g2.setColor(neon);
-        g2.drawString(line2, x2, y2);
 
         g2.dispose();
+    }
+
+    private static Rectangle shrink(Rectangle r, int pad) {
+        return new Rectangle(r.x + pad, r.y + pad,
+                Math.max(1, r.width - 2 * pad), Math.max(1, r.height - 2 * pad));
+    }
+
+    private static void drawCentered(Graphics2D g2, Image img, Rectangle slot) {
+        if (img == null) return;
+        int iw = img.getWidth(null), ih = img.getHeight(null);
+        if (iw <= 0 || ih <= 0) return;
+
+        double sx = slot.width  / (double) iw;
+        double sy = slot.height / (double) ih;
+        double s  = Math.min(sx, sy);
+
+        int w = (int) Math.round(iw * s);
+        int h = (int) Math.round(ih * s);
+        int x = slot.x + (slot.width  - w) / 2;
+        int y = slot.y + (slot.height - h) / 2;
+
+        g2.drawImage(img, x, y, w, h, null);
+    }
+
+    // robust loader: classpath first, then file fallback
+    private static BufferedImage loadImage(String name) {
+        try {
+            try (InputStream in = StartScreen.class.getResourceAsStream("/" + name)) {
+                if (in != null) return ImageIO.read(in);
+            }
+            try (InputStream in = StartScreen.class.getResourceAsStream(name)) {
+                if (in != null) return ImageIO.read(in);
+            }
+            File f = new File(name);
+            if (f.exists()) return ImageIO.read(f);
+            System.err.println("[StartScreen] Image not found: " + name);
+        } catch (Exception ex) {
+            System.err.println("[StartScreen] Failed to load " + name + " -> " + ex);
+        }
+        return null;
+    }
+
+    // fractional rect holder
+    private static class RectF {
+        final float x, y, w, h;
+        RectF(float x, float y, float w, float h) { this.x = x; this.y = y; this.w = w; this.h = h; }
     }
 }
